@@ -5,7 +5,9 @@
 #include <sys/unistd.h>
 #include <sys/stat.h>
 
-//#include <esp_wifi.h>
+//#include <esp_bt.h>
+
+#include <esp_wifi.h>
 #include <esp_event_loop.h>
 #include <esp_log.h>
 #include <esp_system.h>
@@ -90,29 +92,33 @@ static esp_err_t init_camera()
   return ESP_OK;
 }
 
-static intr_handle_t s_timer_handle;
+//static intr_handle_t s_timer_handle;
 
 void app_main()
 {
   ESP_ERROR_CHECK(nvs_flash_init());
-  init_camera();
-  
-  ledc_timer_config_t timer_conf;
-  //timer_conf.bit_num = LEDC_TIMER_15_BIT;
-  timer_conf.bit_num = 8; //1-10: numbers, 11-15: enums
-  timer_conf.freq_hz = 15625;
-  timer_conf.speed_mode = LEDC_HIGH_SPEED_MODE;
-  timer_conf.timer_num = LEDC_TIMER_3;
-  ledc_timer_config(&timer_conf);
 
-  ledc_channel_config_t ledc_conf;
-  ledc_conf.channel = LEDC_CHANNEL_1;
-  ledc_conf.duty = 50;
-  ledc_conf.gpio_num = 2;
-  ledc_conf.intr_type = LEDC_INTR_DISABLE;
-  ledc_conf.speed_mode = LEDC_HIGH_SPEED_MODE;
-  ledc_conf.timer_sel = LEDC_TIMER_3;
-  ledc_channel_config(&ledc_conf);
+	//esp_bluedroid_disable();
+	//esp_bt_controller_disable();
+	//esp_wifi_stop();
+
+	//These are for the SSTV thing.
+  //ledc_timer_config_t timer_conf;
+  ////timer_conf.bit_num = LEDC_TIMER_15_BIT;
+  //timer_conf.bit_num = 8; //1-10: numbers, 11-15: enums
+  //timer_conf.freq_hz = 15625;
+  //timer_conf.speed_mode = LEDC_HIGH_SPEED_MODE;
+  //timer_conf.timer_num = LEDC_TIMER_3;
+  //ledc_timer_config(&timer_conf);
+
+  //ledc_channel_config_t ledc_conf;
+  //ledc_conf.channel = LEDC_CHANNEL_1;
+  //ledc_conf.duty = 50;
+  //ledc_conf.gpio_num = 2;
+  //ledc_conf.intr_type = LEDC_INTR_DISABLE;
+  //ledc_conf.speed_mode = LEDC_HIGH_SPEED_MODE;
+  //ledc_conf.timer_sel = LEDC_TIMER_3;
+  //ledc_channel_config(&ledc_conf);
 
   vTaskDelay(1000/portTICK_PERIOD_MS);
 
@@ -177,6 +183,7 @@ void app_main()
 
 	char fname[32];
 	struct stat st;
+	ESP_LOGI(TAG, "Finding last file.");
 	while(1)
 	{
 		snprintf(fname, 64, "%s/p%07d.jpg", MOUNT_POINT, filenr);
@@ -189,6 +196,7 @@ void app_main()
 	}
   
 	ESP_LOGI(TAG, "Final counter %d", filenr);
+
 	
 	while(1)
 	{
@@ -202,19 +210,30 @@ void app_main()
   	}
 
   	camera_fb_t *fb = NULL;
+  	ESP_LOGI(TAG, "Camera init");
+		init_camera();
+  	ESP_LOGI(TAG, "Taking photo");
   	fb = esp_camera_fb_get();
   	//rgb_buf = (uint8_t*)malloc(fb->width*fb->height*3*sizeof(uint8_t));
   	//rgb_width = fb->width;
   	//rgb_height = fb->height;
   	//fmt2rgb888(fb->buf, fb->len, fb->format, rgb_buf);
+  	ESP_LOGI(TAG, "Made photo");
 		fwrite(fb->buf, 1, fb->len, f);
+  	fclose(f);
   	esp_camera_fb_return(fb);
-		vTaskDelay(5*1000/portTICK_PERIOD_MS);
+		esp_camera_deinit();
+  	ESP_LOGI(TAG, "File written");
+		//esp_camera_deinit();
+  	ESP_LOGI(TAG, "Before sleep");
+		esp_sleep_enable_timer_wakeup(5000000);
+  	ESP_LOGI(TAG, "Set up sleep");
+		esp_light_sleep_start();
+  	ESP_LOGI(TAG, "After sleep");
+		//system_deep_sleep(5000000);
   	//ESP_LOGE(TAG, "DELAY vege");
 		
   	//fprintf(f, "Hello %s!\n", card->cid.name);
-  	fclose(f);
-  	ESP_LOGI(TAG, "File written");
 		filenr++;
 	}
 
